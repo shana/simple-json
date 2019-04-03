@@ -77,10 +77,11 @@ using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
+
 #if NICEIO
 using SpoiledCat.NiceIO;
 #endif
-
 
 // ReSharper disable LoopCanBeConvertedToQuery
 // ReSharper disable RedundantExplicitArrayCreation
@@ -1368,6 +1369,10 @@ namespace SimpleJson
                 return false;
             if (ReflectionUtils.GetAttribute(property, typeof(NotSerializedAttribute)) != null)
                 return false;
+            // if this is an indexed getter (i.e. this[int] property getter), skip it,
+            // since it's a helper-only type getter for C# syntactic sugar
+            if (property.GetMethod.GetParameters().Length > 0)
+                return false;
             return true;
         }
 
@@ -2259,6 +2264,7 @@ namespace SimpleJson
 
         public class JsonSerializationStrategy : PocoJsonSerializerStrategy
         {
+            private static Regex getterNameRegex = new Regex("^(?:[^\\.]*\\.)*(get_).*$");
             private bool toLowerCase = false;
             private bool onlyPublic = true;
 
@@ -2309,7 +2315,7 @@ namespace SimpleJson
                     return true;
 
                 // if the getter is private and we're only serializing public things, skip this property
-                if (onlyPublic && method.Name.StartsWith("get_"))
+                if (onlyPublic && getterNameRegex.IsMatch(method.Name))
                     return false;
 
                 return true;
