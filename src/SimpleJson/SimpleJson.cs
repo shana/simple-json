@@ -24,7 +24,7 @@
 // - (De)Serializing DateTime and DateTimeOffset with multiple ISO formats
 // - Extension methods ToJson and FromJson with casing choices
 
-// VERSION: 1.2.2
+// VERSION: 1.2.3
 
 // NOTE: uncomment the following line to make SimpleJson class internal.
 //#define SIMPLE_JSON_INTERNAL
@@ -43,22 +43,26 @@
 
 // NOTE: uncomment the following line to disable linq expressions/compiled lambda (better performance) instead of method.invoke().
 // define if you are using .net framework <= 3.0 or < WP7.5
-//#define SIMPLE_JSON_NO_LINQ_EXPRESSION
+// #define SIMPLE_JSON_NO_LINQ_EXPRESSION
 
-// NOTE: uncomment the following line if you are compiling under Window Metro style application/library.
-// usually already defined in properties
-//#define NETFX_CORE;
-
-// If you are targetting WinStore, WP8 and NET4.5+ PCL make sure to #define SIMPLE_JSON_TYPEINFO;
-
-// original json parsing code from http://techblog.procurios.nl/k/618/news/view/14605/14863/How-do-I-write-my-own-parser-for-JSON.html
-
+// NOTE: uncomment the following line if you are targetting WinStore, WP8 and NET4.5+ PCL or compiling under Window Metro style application/library.
+// usually already defined via NETFX_CORE
+//#define SIMPLE_JSON_TYPEINFO
 #if NETFX_CORE
 #define SIMPLE_JSON_TYPEINFO
 #endif
 
 // NOTE: uncomment the following line if you're using NPath (https://github.com/shana/niceio)
 //#define NICEIO
+
+// NOTE: uncomment the following line if you want support for Unity3D's type serialization
+// usually already defined by unity via the unity defines in the #if below
+//#define SIMPLE_JSON_UNITY
+#if UNITY_4 || UNITY_5 || UNITY_5_3_OR_NEWER
+#define SIMPLE_JSON_UNITY
+#endif
+
+// original json parsing code from http://techblog.procurios.nl/k/618/news/view/14605/14863/How-do-I-write-my-own-parser-for-JSON.html
 
 using System;
 using System.CodeDom.Compiler;
@@ -2209,7 +2213,10 @@ namespace SimpleJson
     public sealed class NotSerializedAttribute : Attribute
     {
     }
+}
 
+namespace SimpleJson
+{
     public static class JsonSerializerExtensions
     {
         static JsonSerializationStrategy publicLowerCaseStrategy = new JsonSerializationStrategy(true, true);
@@ -2247,6 +2254,73 @@ namespace SimpleJson
                 return publicUpperCaseStrategy;
             return privateUpperCaseStrategy;
         }
+    }
+
+    public class JsonSerializationStrategy : PocoJsonSerializerStrategy
+    {
+        private static Regex getterNameRegex = new Regex("^(?:[^\\.]*\\.)*(get_).*$");
+        private bool toLowerCase = false;
+        private bool onlyPublic = true;
+
+        public JsonSerializationStrategy(bool toLowerCase, bool onlyPublic)
+        {
+            this.toLowerCase = toLowerCase;
+            this.onlyPublic = onlyPublic;
+        }
+
+        public override object DeserializeObject(string str, object value, Type type)
+        {
+            if (!string.IsNullOrEmpty(str))
+            {
+#if NICEIO
+                if (type.IsOfType<NPath>())
+                    return new NPath(str);
+#endif
+            }
+            return base.DeserializeObject(str, value, type);
+        }
+
+        protected override bool TrySerializeKnownTypes(object input, out object output)
+        {
+#if NICEIO
+            if (input is NPath)
+            {
+                output = input.ToString();
+                return true;
+            }
+#endif
+            return base.TrySerializeKnownTypes(input, out output);
+        }
+
+        protected override bool CanAddField(FieldInfo field)
+        {
+            var canAdd = base.CanAddField(field);
+            return canAdd && ((onlyPublic && field.IsPublic) || !onlyPublic);
+        }
+
+        protected override bool CanAddProperty(PropertyInfo property, MethodInfo method)
+        {
+            var canAdd = base.CanAddProperty(property, method);
+            if (!canAdd)
+                return false;
+
+            // we always serialize public things
+            if (method.IsPublic)
+                return true;
+
+            // if the getter is private and we're only serializing public things, skip this property
+            if (onlyPublic && getterNameRegex.IsMatch(method.Name))
+                return false;
+
+            return true;
+        }
+
+        protected override string MapClrMemberNameToJsonFieldName(string clrPropertyName)
+        {
+            if (!toLowerCase)
+                return base.MapClrMemberNameToJsonFieldName(clrPropertyName);
+            return ToJsonPropertyName(clrPropertyName);
+        }
 
         /// <summary>
         /// Convert from PascalCase to camelCase.
@@ -2261,72 +2335,76 @@ namespace SimpleJson
                 i++;
             return propertyName.Substring(0, i).ToLowerInvariant() + propertyName.Substring(i);
         }
+    }
 
-        public class JsonSerializationStrategy : PocoJsonSerializerStrategy
+#if SIMPLE_JSON_UNITY
+    public class UnitySerializationStrategy : JsonSerializerExtensions.JsonSerializationStrategy
+    {
+        public UnitySerializationStrategy(bool toLowerCase, bool onlyPublic) : base(toLowerCase, onlyPublic)
+        {}
+
+        protected override bool TrySerializeKnownTypes(object input, out object output)
         {
-            private static Regex getterNameRegex = new Regex("^(?:[^\\.]*\\.)*(get_).*$");
-            private bool toLowerCase = false;
-            private bool onlyPublic = true;
-
-            public JsonSerializationStrategy(bool toLowerCase, bool onlyPublic)
+            if (input.GetType().FullName.StartsWith("Unity"))
             {
-                this.toLowerCase = toLowerCase;
-                this.onlyPublic = onlyPublic;
-            }
-
-            public override object DeserializeObject(string str, object value, Type type)
-            {
-                if (!string.IsNullOrEmpty(str))
-                {
-#if NICEIO
-                    if (type.IsOfType<NPath>())
-                        return new NPath(str);
-#endif
-                }
-                return base.DeserializeObject(str, value, type);
-            }
-
-            protected override bool TrySerializeKnownTypes(object input, out object output)
-            {
-#if NICEIO
-                if (input is NPath)
-                {
-                    output = input.ToString();
-                    return true;
-                }
-#endif
-                return base.TrySerializeKnownTypes(input, out output);
-            }
-
-            protected override bool CanAddField(FieldInfo field)
-            {
-                var canAdd = base.CanAddField(field);
-                return canAdd && ((onlyPublic && field.IsPublic) || !onlyPublic);
-            }
-
-            protected override bool CanAddProperty(PropertyInfo property, MethodInfo method)
-            {
-                var canAdd = base.CanAddProperty(property, method);
-                if (!canAdd)
-                    return false;
-
-                // we always serialize public things
-                if (method.IsPublic)
-                    return true;
-
-                // if the getter is private and we're only serializing public things, skip this property
-                if (onlyPublic && getterNameRegex.IsMatch(method.Name))
-                    return false;
-
+                output = JsonUtility.ToJson(input);
                 return true;
             }
+            return base.TrySerializeKnownTypes(input, out output);
+        }
 
-            protected override string MapClrMemberNameToJsonFieldName(string clrPropertyName)
+        public override object DeserializeObject(string str, object value, Type type)
+        {
+            if (!string.IsNullOrEmpty(str) && type.FullName.StartsWith("Unity"))
             {
-                if (!toLowerCase)
-                    return base.MapClrMemberNameToJsonFieldName(clrPropertyName);
-                return ToJsonPropertyName(clrPropertyName);
+                return JsonUtility.FromJson(str, type);
             }
+            return base.DeserializeObject(str, value, type);
+        }
+    }
+#endif
+
+    static class EnabledStrategy
+    {
+        static PocoJsonSerializerStrategy publicLowerCaseStrategy;
+        static PocoJsonSerializerStrategy publicUpperCaseStrategy;
+        static PocoJsonSerializerStrategy privateLowerCaseStrategy;
+        static PocoJsonSerializerStrategy privateUpperCaseStrategy;
+
+        static EnabledStrategy()
+        {
+#if SIMPLE_JSON_UNITY
+            publicLowerCaseStrategy = new UnitySerializationStrategy(true, true);
+            publicUpperCaseStrategy = new UnitySerializationStrategy(false, true);
+            privateLowerCaseStrategy = new UnitySerializationStrategy(true, false);
+            privateUpperCaseStrategy = new UnitySerializationStrategy(false, false);
+#else
+            publicLowerCaseStrategy = new JsonSerializationStrategy(true, true);
+            publicUpperCaseStrategy = new JsonSerializationStrategy(false, true);
+            privateLowerCaseStrategy = new JsonSerializationStrategy(true, false);
+            privateUpperCaseStrategy = new JsonSerializationStrategy(false, false);
+#endif
+        }
+
+        public static void SetStrategy(PocoJsonSerializerStrategy publicLowerCase,
+            PocoJsonSerializerStrategy publicUpperCase,
+            PocoJsonSerializerStrategy privateLowerCase, PocoJsonSerializerStrategy privateUpperCase)
+        {
+            publicLowerCaseStrategy = publicLowerCase;
+            publicUpperCaseStrategy = publicUpperCase;
+            privateLowerCaseStrategy = privateLowerCase;
+            privateUpperCaseStrategy = privateUpperCase;
+        }
+
+        public static PocoJsonSerializerStrategy GetStrategy(bool lowerCase, bool onlyPublic)
+        {
+            if (lowerCase && onlyPublic)
+                return publicLowerCaseStrategy;
+            if (lowerCase && !onlyPublic)
+                return privateLowerCaseStrategy;
+            if (!lowerCase && onlyPublic)
+                return publicUpperCaseStrategy;
+            return privateUpperCaseStrategy;
         }
     }
 }

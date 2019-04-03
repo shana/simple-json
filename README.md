@@ -7,6 +7,7 @@ This is a fork of SimpleJson with support for:
 - Serializing only public or public and private methods and fields
 - NPath (https://github.com/shana/niceio)
 - Fine-grained (de)serialization control via custom serialization strategy classes or overrideable methods (see `JsonSerializationStrategy` class for an example)
+- Unity (https://unity3d.com) type support by deferring to Unity's json serializer for Unity types
 
 Small and fast JSON library for .NET 2.0+/SL4+/WP7+/Windows Store Apps/Portable Class Library and powershell.
 Includes support for dynamic in .NET 4.0+/SL4+/Windows Store Apps. Also includes support for DataContract and DataMember. 
@@ -35,6 +36,7 @@ Install-Package SimpleJson
 * Windows Phone 7.1 (Mango)
 * Windows Phone 8
 * Portable Class Libraries (PCL)
+* Unity
 
 **Note:** By default SimpleJson expects `System.Linq`. If you are targeting older version of .NET framework (.net < 3.0 or WP7.0) you will need to add `#define SIMPLE_JSON_NO_LINQ_EXPRESSION`.
 
