@@ -1,4 +1,13 @@
 # SimpleJson
+
+This is a fork of SimpleJson with support for:
+- Serializing structs
+- (De)Serializing DateTime and DateTimeOffset with multiple ISO formats
+- Extension methods ToJson and FromJson with casing choices
+- Serializing only public or public and private methods and fields
+- NPath (https://github.com/shana/niceio)
+- Fine-grained (de)serialization control via custom serialization strategy classes or overrideable methods (see `JsonSerializationStrategy` class for an example)
+
 Small and fast JSON library for .NET 2.0+/SL4+/WP7+/Windows Store Apps/Portable Class Library and powershell.
 Includes support for dynamic in .NET 4.0+/SL4+/Windows Store Apps. Also includes support for DataContract and DataMember. 
 
@@ -17,7 +26,8 @@ Install-Package SimpleJson
 * .NET 3.0
 * .NET 3.5 (Client Profile and Full Profile)
 * .NET 4.0 (Client Profile and Full Profile)
-* .NET 4.5
+* .NET 4.5+
+* .NET Core, .NET Standard, .NET Whatever Comes Next
 * Windows 8 Store Apps
 * Silverlight 4
 * Silverlight 5
