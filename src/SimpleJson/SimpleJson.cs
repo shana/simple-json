@@ -2277,6 +2277,7 @@ namespace SimpleJson
                     return new NPath(str);
 #endif
             }
+
             return base.DeserializeObject(str, value, type);
         }
 
@@ -2387,8 +2388,8 @@ namespace SimpleJson
         }
 
         public static void SetStrategy(PocoJsonSerializerStrategy publicLowerCase,
-            PocoJsonSerializerStrategy publicUpperCase,
-            PocoJsonSerializerStrategy privateLowerCase, PocoJsonSerializerStrategy privateUpperCase)
+            PocoJsonSerializerStrategy publicUpperCase, PocoJsonSerializerStrategy privateLowerCase,
+            PocoJsonSerializerStrategy privateUpperCase)
         {
             publicLowerCaseStrategy = publicLowerCase;
             publicUpperCaseStrategy = publicUpperCase;
